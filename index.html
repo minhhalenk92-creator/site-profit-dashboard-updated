@@ -281,15 +281,15 @@ License: MIT
   }
 
   // 0-based column indices (A=0, B=1, ... Z=25, AA=26, ...)
-  const COL = { A:0, B:1, D:3, E:4, H:7, T:19, V:21, Y:24, AD:29 };
+  const COL = { A:0, B:1, C:2, D:3, E:4, G:6, H:7, T:19, V:21, Y:24, AD:29 };
 
   async function loadData(isRefresh){
     const btn = $('spd-btn-refresh');
     if (btn){ btn.disabled = true; btn.textContent = isRefresh ? '⟳ Refreshing…' : '⟳ Loading…'; }
     let unmatchedJobNumbers = new Set();
     try {
-      const [projRows, laborRows, billsRows, spendRows] = await Promise.all([
-        fetchTab('Projects'), fetchTab('Labor'),
+      const [projRows, laborRowsRaw, billsRows, spendRows] = await Promise.all([
+        fetchTab('Projects'), fetchTabRaw('Labor'),
         fetchTabRaw('Detail Cost (Bills)'), fetchTabRaw('Detail Cost (Spend Money)')
       ]);
 
@@ -303,20 +303,30 @@ License: MIT
           jobNumber: (r["Job Number"] || r["JobNumber"] || r["Job number"] || r["Job #"] || '').toString().trim()
         }));
 
-      labor = laborRows
-        .filter(r => (r["Project"] || '').toString().trim() !== '')
-        .map(r => ({
-          date: (r["Date"] || '').toString().trim(),
-          project: (r["Project"] || '').toString().trim(),
-          invoiceRef: (r["Invoice"] || '').toString().trim(),
-          description: (r["Description"] || '').toString().trim(),
-          hours: toNumber(r["Hours"]),
-          rate: toNumber(r["Rate"])
-        }));
-
-      // Job Number -> Project name lookup (built from the Projects tab)
+      // Job Number -> Project lookup (built from the Projects tab)
       const jobToProject = {};
       projects.forEach(p => { if (p.jobNumber) jobToProject[p.jobNumber] = p; });
+
+      // Labor tab columns (fixed, no header names): A=Jobs number, C=Staff Member,
+      // D=Rate, E=Date, G=Billing hours, H=Actual labor cost
+      const laborRaw = laborRowsRaw.slice(1) // row 0 = header
+        .filter(r => (r[COL.A] || '').toString().trim() !== '')
+        .map(r => ({
+          jobNumber: (r[COL.A] || '').toString().trim(),
+          date: (r[COL.E] || '').toString().trim(),
+          staff: (r[COL.C] || '').toString().trim(),
+          rate: toNumber(r[COL.D]),
+          hours: toNumber(r[COL.G]),
+          cost: toNumber(r[COL.H])
+        }));
+
+      labor = laborRaw
+        .map(r => {
+          const p = jobToProject[r.jobNumber];
+          if (!p) { unmatchedJobNumbers.add(r.jobNumber); return null; }
+          return { ...r, project: p.project };
+        })
+        .filter(Boolean);
 
       const billsMaterial = billsRows.slice(1) // row 0 = header
         .filter(r => (r[COL.A] || '').toString().trim() !== '')
@@ -371,7 +381,7 @@ License: MIT
     const materialRows = material.filter(r => r.project === p.project);
 
     const laborHours = laborRows.reduce((s,r)=>s+r.hours, 0);
-    const laborCost = laborRows.reduce((s,r)=>s+r.hours*r.rate, 0);
+    const laborCost = laborRows.reduce((s,r)=>s+r.cost, 0);
     const laborToInvoice = laborHours * LABOR_INVOICE_RATE;
 
     const materialCost = materialRows.reduce((s,r)=>s+r.amount, 0);
@@ -518,12 +528,12 @@ License: MIT
     const sorted = rows.slice().sort((a,b)=>a.date.localeCompare(b.date));
     const trs = sorted.map(r => `
       <tr>
-        <td>${esc(r.date)}</td><td>${esc(r.invoiceRef)}</td><td>${esc(r.description)}</td>
+        <td>${esc(r.date)}</td><td>${esc(r.staff)}</td>
         <td class="spd-mono">${fmtHours(r.hours)}</td>
         <td class="spd-mono">${fmtMoney(r.rate)}/hr</td>
-        <td class="spd-mono">${fmtMoney(r.hours*r.rate)}</td>
+        <td class="spd-mono">${fmtMoney(r.cost)}</td>
       </tr>`).join('');
-    return `<table><thead><tr><th>Date</th><th>Invoice</th><th>Description</th><th>Hours</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${trs}</tbody></table>`;
+    return `<table><thead><tr><th>Date</th><th>Staff</th><th>Hours</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${trs}</tbody></table>`;
   }
 
   function materialLineItemsHtml(rows){
@@ -576,7 +586,7 @@ License: MIT
         p.laborRows.forEach(r => {
           const d = r.date || 'N/A';
           if (!dateMap[d]) dateMap[d] = { date:d, labor:0, material:0 };
-          dateMap[d].labor += r.hours * r.rate;
+          dateMap[d].labor += r.cost;
         });
         p.materialRows.forEach(r => {
           const d = r.date || 'N/A';
