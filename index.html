@@ -364,7 +364,7 @@ License: MIT
           jobNumber: (r[COL.A] || '').toString().trim(),
           date: (r[COL.B] || '').toString().trim(),
           invoiceRef: 'Spend Money',
-          description: [ (r[COL.D]||'').toString().trim(), (r[COL.E]||'').toString().trim() ].filter(Boolean).join(' — '),
+          description: (r[COL.E] || '').toString().trim(),
           amount: toNumber(r[COL.H])
         }));
 
