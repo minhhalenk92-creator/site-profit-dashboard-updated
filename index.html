@@ -144,7 +144,7 @@
     </div>
   </div>
   <p class="spd-note" id="spd-last-updated">Data is pulled live from the "Site Profit Ledger" Google Sheet (tabs: Projects, Labor, Detail Cost (Bills), Detail Cost (Spend Money)) — edit the sheet to update this dashboard for everyone.</p>
-  <p class="spd-rate-note">Invoice basis for in-progress projects: labor at <b>$150/hr</b> · material &amp; subcontractor at <b>cost + 20%</b>.</p>
+  <p class="spd-rate-note">Invoice basis for in-progress projects: labor at <b>$150/hr + 10% GST ($165/hr inc GST)</b> · material &amp; subcontractor at <b>cost + 20%</b>.</p>
   <div id="spd-error-banner" style="display:none; background:var(--loss-soft); border:1px solid var(--loss); color:var(--loss); padding:10px 14px; font-size:13px; margin-bottom:16px;"></div>
 
   <div class="spd-kpis" id="spd-kpis"></div>
@@ -226,6 +226,7 @@ License: MIT
 (function(){
   const SHEET_BASE = "https://docs.google.com/spreadsheets/d/1FBWjFwCyp7745M_5cpWn_rmWkCxjJ9alAswL5dq56rw/gviz/tq?tqx=out:csv&sheet=";
   const LABOR_INVOICE_RATE = 150;   // $/hr billed to client for in-progress projects
+  const GST_RATE = 0.10;            // 10% GST added to labor invoice amount
   const MATERIAL_MARKUP = 1.2;      // cost + 20% billed to client for in-progress projects
 
   let projects = [];   // {project, customer, status, revenue}
@@ -294,7 +295,7 @@ License: MIT
   }
 
   // 0-based column indices (A=0, B=1, ... Z=25, AA=26, ...)
-  const COL = { A:0, B:1, C:2, D:3, E:4, G:6, H:7, T:19, V:21, Y:24, AD:29, AF:31 };
+  const COL = { A:0, B:1, C:2, D:3, E:4, G:6, H:7, T:19, V:21, Y:24, AD:29, AF:31, AK:36 };
 
   async function loadData(isRefresh){
     const btn = $('spd-btn-refresh');
@@ -354,7 +355,7 @@ License: MIT
           date: (r[COL.V] || '').toString().trim(),
           invoiceRef: (r[COL.T] || '').toString().trim(),
           description: (r[COL.AD] || '').toString().trim(),
-          amount: toNumber(r[COL.AF])
+          amount: toNumber(r[COL.AF]) + toNumber(r[COL.AK])
         }));
 
       const spendMaterial = spendRows.slice(1) // row 0 = header
@@ -401,7 +402,7 @@ License: MIT
 
     const laborHours = laborRows.reduce((s,r)=>s+r.hours, 0);
     const laborCost = laborRows.reduce((s,r)=>s+r.cost, 0);
-    const laborToInvoice = laborHours * LABOR_INVOICE_RATE;
+    const laborToInvoice = laborHours * LABOR_INVOICE_RATE * (1 + GST_RATE);
 
     const materialCost = materialRows.reduce((s,r)=>s+r.amount, 0);
     const materialToInvoice = materialCost * MATERIAL_MARKUP;
@@ -612,7 +613,7 @@ License: MIT
       ['Hours', fmtHours(p.laborHours)],
       ['Cost', fmtMoney(p.laborCost)]
     ];
-    if (!p.isCompleted) laborStats.push(['To invoice @ $150/hr', fmtMoney(p.laborToInvoice)]);
+    if (!p.isCompleted) laborStats.push(['To invoice @ $165/hr (inc GST)', fmtMoney(p.laborToInvoice)]);
     $('cat-stats-labor').innerHTML = laborStats.map(([label,val]) =>
       `<div class="spd-cat-stat"><div class="spd-cat-stat-label">${label}</div><div class="spd-cat-stat-value">${val}</div></div>`).join('');
     $('cat-body-labor').innerHTML = laborLineItemsHtml(p.laborRows);
