@@ -235,9 +235,12 @@ License: MIT
   const $ = (id) => document.getElementById(id);
 
   function fmtMoney(n){
-    const sign = n < 0 ? '-' : '';
-    return sign + '$' + Math.round(Math.abs(n)).toLocaleString('en-US');
-  }
+  const sign = n < 0 ? '-' : '';
+  return sign + '$' + Math.abs(n).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
   function fmtPct(n){
     if (!isFinite(n)) return '—';
     return n.toFixed(1) + '%';
@@ -291,7 +294,7 @@ License: MIT
   }
 
   // 0-based column indices (A=0, B=1, ... Z=25, AA=26, ...)
-  const COL = { A:0, B:1, C:2, D:3, E:4, G:6, H:7, T:19, V:21, Y:24, AD:29 };
+  const COL = { A:0, B:1, C:2, D:3, E:4, G:6, H:7, T:19, V:21, Y:24, AD:29, AF:31 };
 
   async function loadData(isRefresh){
     const btn = $('spd-btn-refresh');
@@ -351,7 +354,7 @@ License: MIT
           date: (r[COL.V] || '').toString().trim(),
           invoiceRef: (r[COL.T] || '').toString().trim(),
           description: (r[COL.AD] || '').toString().trim(),
-          amount: toNumber(r[COL.Y])
+          amount: toNumber(r[COL.AF])
         }));
 
       const spendMaterial = spendRows.slice(1) // row 0 = header
