@@ -171,7 +171,6 @@
       <div class="spd-detail-kpis" id="spd-detail-kpis"></div>
     </div>
     <div class="spd-card"><h3>Cost composition</h3><canvas id="spd-chart-breakdown"></canvas></div>
-    <div class="spd-card" style="grid-column: 1 / -1;"><h3>Spending over time</h3><canvas id="spd-chart-trend"></canvas></div>
   </div>
 
   <div id="spd-detail-categories" style="display:none">
@@ -259,6 +258,17 @@ License: MIT
   function esc(s){
     return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   }
+  // Finds a column in a Papa.parse(header:true) row object by fuzzy-matching
+  // its header name — tolerant of spacing/casing/pluralization differences
+  // (e.g. "Jobs number", "Job Number", "JobNumber" all match ['job','num']).
+  function findKey(row, mustIncludeTokens){
+    const keys = Object.keys(row);
+    for (const k of keys){
+      const nk = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (mustIncludeTokens.every(tok => nk.includes(tok))) return k;
+    }
+    return null;
+  }
 
   async function fetchTab(sheetName){
     const url = SHEET_BASE + encodeURIComponent(sheetName) + '&_=' + Date.now();
@@ -295,17 +305,23 @@ License: MIT
 
       projects = projRows
         .filter(r => (r["Project"] || '').toString().trim() !== '')
-        .map(r => ({
-          project: (r["Project"] || '').toString().trim(),
-          customer: (r["Customer"] || '').toString().trim(),
-          status: normalizeStatus(r["Status"]),
-          revenue: toNumber(r["Revenue"]),
-          jobNumber: (r["Job Number"] || r["JobNumber"] || r["Job number"] || r["Job #"] || '').toString().trim()
-        }));
+        .map(r => {
+          const jobKey = findKey(r, ['job','num']);
+          return {
+            project: (r["Project"] || '').toString().trim(),
+            customer: (r["Customer"] || '').toString().trim(),
+            status: normalizeStatus(r["Status"]),
+            revenue: toNumber(r["Revenue"]),
+            jobNumber: (jobKey ? r[jobKey] : '').toString().trim()
+          };
+        });
 
       // Job Number -> Project lookup (built from the Projects tab)
       const jobToProject = {};
       projects.forEach(p => { if (p.jobNumber) jobToProject[p.jobNumber] = p; });
+      if (projects.length && Object.keys(jobToProject).length === 0){
+        showError('Could not find a "Job Number" column in the Projects tab (or it is empty for every row). Labor and Material costs cannot be matched to projects until this is fixed.');
+      }
 
       // Labor tab columns (fixed, no header names): A=Jobs number, C=Staff Member,
       // D=Rate, E=Date, G=Billing hours, H=Actual labor cost
@@ -581,30 +597,6 @@ License: MIT
             tooltip:{ callbacks:{ label: c => `${c.label}: ${fmtMoney(compValues[c.dataIndex])}` } } } }
         });
 
-        // Spending over time: labor cost & material cost grouped by date
-        const dateMap = {};
-        p.laborRows.forEach(r => {
-          const d = r.date || 'N/A';
-          if (!dateMap[d]) dateMap[d] = { date:d, labor:0, material:0 };
-          dateMap[d].labor += r.cost;
-        });
-        p.materialRows.forEach(r => {
-          const d = r.date || 'N/A';
-          if (!dateMap[d]) dateMap[d] = { date:d, labor:0, material:0 };
-          dateMap[d].material += r.amount;
-        });
-        const dateRows = Object.values(dateMap).sort((a,b)=>a.date.localeCompare(b.date));
-
-        destroyChart('trend');
-        charts.trend = new Chart($('spd-chart-trend'), {
-          type:'line',
-          data:{ labels: dateRows.map(r=>r.date),
-            datasets:[
-              {label:'Labor cost', data: dateRows.map(r=>r.labor), borderColor:'#23516C', backgroundColor:'#23516C', tension:.25},
-              {label:'Material & subcontractor cost', data: dateRows.map(r=>r.material), borderColor:'#B7C4CC', backgroundColor:'#B7C4CC', tension:.25}
-            ]},
-          options:{ plugins:{legend:{position:'bottom'}}, scales:{y:{ticks:{callback:v=>fmtMoney(v)}}} }
-        });
         hideError();
       } catch(err){
         console.error('Chart render error', err);
