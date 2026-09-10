@@ -753,7 +753,22 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
       XLSX.utils.book_append_sheet(wb, ws3, 'Detail cost');
 
       const safeName = (p.jobNumber || p.project).replace(/[\\/:*?"<>|]/g, '_');
-      XLSX.writeFile(wb, `Job_Financial_Report_-_${safeName}.xlsx`);
+      const filename = `Job_Financial_Report_-_${safeName}.xlsx`;
+      // Build the file as a Blob and trigger the download via a manual <a> click
+      // instead of XLSX.writeFile — much more reliable on mobile browsers
+      // (iOS Safari / Chrome Android), which often ignore or mishandle
+      // writeFile's internal download mechanism.
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
       hideError();
     } catch(err){
       console.error('Export error', err);
