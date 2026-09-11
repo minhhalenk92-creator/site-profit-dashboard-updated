@@ -586,7 +586,7 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
   };
 
   let currentDetailProject = null;
-  }
+  
   function renderFinancialTable(p){
     const { laborInvoiced, materialInvoiced } = computeInvoicedSplit(p);
     const laborGP = p.laborToInvoice - p.laborCost;
