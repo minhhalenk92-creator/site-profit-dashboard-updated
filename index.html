@@ -625,7 +625,7 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
       ['Hours', fmtHours(p.laborHours)],
       ['Cost', fmtMoney(p.laborCost)]
     ];
-    if (!p.isCompleted) laborStats.push(['To invoice @ $150/hr', fmtMoney(p.laborToInvoice)]);
+    if (!p.isCompleted) laborStats.push(['To invoice @ $165/hr (inc GST)', fmtMoney(p.laborToInvoice)]);
     $('cat-stats-labor').innerHTML = laborStats.map(([label,val]) =>
       `<div class="spd-cat-stat"><div class="spd-cat-stat-label">${label}</div><div class="spd-cat-stat-value">${val}</div></div>`).join('');
     $('cat-body-labor').innerHTML = laborLineItemsHtml(p.laborRows);
