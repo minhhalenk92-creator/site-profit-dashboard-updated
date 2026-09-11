@@ -174,7 +174,7 @@
       </div>
       <div class="spd-detail-kpis" id="spd-detail-kpis"></div>
     </div>
-    <div class="spd-card"><h3>Cost composition</h3><canvas id="spd-chart-breakdown"></canvas></div>
+    <div class="spd-card spd-table-card"><h3>Job Financial Report</h3><div id="spd-financial-table"></div></div>
   </div>
 
   <div id="spd-detail-categories" style="display:none">
@@ -586,8 +586,42 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
   };
 
   let currentDetailProject = null;
+  }
+  function renderFinancialTable(p){
+    const { laborInvoiced, materialInvoiced } = computeInvoicedSplit(p);
+    const laborGP = p.laborToInvoice - p.laborCost;
+    const laborMargin = p.laborCost ? laborGP / p.laborCost : 0;
+    const materialGP = p.materialToInvoice - p.materialCost;
+    const materialMargin = p.materialCost ? materialGP / p.materialCost : 0;
+    const totalCost = p.laborCost + p.materialCost;
+    const totalInvoiced = laborInvoiced + materialInvoiced;
+    const totalToInvoice = p.laborToInvoice + p.materialToInvoice;
+    const totalGP = laborGP + materialGP;
+    const totalMargin = totalCost ? totalGP / totalCost : 0;
 
+    const rows = [
+      { label: p.jobNumber || p.project, breakdown: 'Time', cost: p.laborCost, invoiced: laborInvoiced, toInvoice: p.laborToInvoice, gp: laborGP, margin: laborMargin, isTotal: false },
+      { label: p.customer, breakdown: 'Materials', cost: p.materialCost, invoiced: materialInvoiced, toInvoice: p.materialToInvoice, gp: materialGP, margin: materialMargin, isTotal: false },
+      { label: '', breakdown: 'Total', cost: totalCost, invoiced: totalInvoiced, toInvoice: totalToInvoice, gp: totalGP, margin: totalMargin, isTotal: true }
+    ];
+
+    const trs = rows.map(r => `
+      <tr class="${r.isTotal ? '' : (r.gp>=0?'profit':'loss')}" style="${r.isTotal ? 'font-weight:600;background:var(--bg);' : ''}">
+        <td>${esc(r.label)}</td>
+        <td>${esc(r.breakdown)}</td>
+        <td class="spd-mono">${fmtMoney(r.cost)}</td>
+        <td class="spd-mono">${fmtMoney(r.invoiced)}</td>
+        <td class="spd-mono">${fmtMoney(r.toInvoice)}</td>
+        <td class="spd-mono hl">${fmtMoney(r.gp)}</td>
+        <td class="spd-mono hl">${fmtPct(r.margin*100)}</td>
+      </tr>`).join('');
+
+    $('spd-financial-table').innerHTML = `
+      <table><thead><tr><th>Job No / Customer</th><th>Break Down</th><th>Actual Cost</th><th>Invoiced</th><th>To Invoice</th><th>Gross Profit</th><th>Profit Margin</th></tr></thead>
+      <tbody>${trs}</tbody></table>`;
+  }
   function renderProjectDetail(p){
+    renderFinancialTable(p);
     currentDetailProject = p;
     const cls = (v) => v>=0 ? 'profit':'loss';
 
