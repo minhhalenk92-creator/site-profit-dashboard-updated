@@ -753,7 +753,7 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
       // ---- Sheet 1: Job Financial Report ----
       const s1 = [
         ['Job Financial Report', '', '', '', '', '', ''],
-        ['Job No / Customer', 'Break Down', 'Actual Cost', 'Invoiced', 'To Invoice (at normal rate)', 'Gross Profit', 'Profit Margin'],
+        ['Job No / Customer', 'Break Down', 'Actual Cost', 'Invoiced', 'To Invoice', 'Gross Profit', 'Profit Margin'],
         [p.jobNumber || p.project, 'Time', p.laborCost, laborInvoiced, p.laborToInvoice, laborGP, laborMargin],
         [p.customer, 'Materials', p.materialCost, materialInvoiced, p.materialToInvoice, materialGP, materialMargin],
         ['', 'Total', totalCost, totalInvoiced, totalToInvoice, totalGP, totalMargin]
